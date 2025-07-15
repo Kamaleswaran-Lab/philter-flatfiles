@@ -40,16 +40,22 @@ def process_single_note(session, note_text, row_index, max_retries=3):
     """Process a single note with error handling"""
     for attempt in range(max_retries):
         try:
+            # Encode text as UTF-8 to handle Unicode characters
+            encoded_text = note_text.encode('utf-8')
+            
             response = session.post(
-                'http://localhost:8080/api/filter',
-                data=note_text,
-                headers={'Content-Type': 'text/plain'},
+                'http://philter:8080/api/filter',
+                data=encoded_text,
+                headers={'Content-Type': 'text/plain; charset=utf-8'},
                 params={'p': 'default'},
-                timeout=30
+                timeout=120
             )
             response.raise_for_status()
             return row_index, response.text
             
+        except UnicodeEncodeError as e:
+            print(f"Unicode encoding error for row {row_index}: {e}")
+            return row_index, f"ERROR: Unicode encoding error: {str(e)}"
         except requests.exceptions.RequestException as e:
             if attempt == max_retries - 1:
                 print(f"Failed to process row {row_index} after {max_retries} attempts: {e}")
@@ -95,7 +101,7 @@ def get_total_rows(input_file):
     total_rows = 0
     
     # Read file in small chunks just to count rows
-    for chunk in pd.read_csv(input_file, sep='|', chunksize=1000):
+    for chunk in pd.read_csv(input_file, chunksize=1000, on_bad_lines='skip'):
         total_rows += len(chunk)
     
     return total_rows
@@ -155,9 +161,9 @@ def calculate_chunk_size(total_rows, num_chunks=100):
 
 def main():
     # Configuration
-    input_file = '/mnt/c/klduke/emorydata/Combined_Radiology_Notes_with_EncounterNumber.dsv'
-    output_dir = Path('/mnt/c/klduke/emorydata/chunks')
-    final_output = '/mnt/c/klduke/emorydata/Combined_Radiology_Notes_with_EncounterNumber_deid.dsv'
+    input_file = '/labs/collab/Imaging/Imaging-PHI/Emory_Images/Meta/Combined_Radiology_Notes_with_EncounterNumber.csv'
+    output_dir = Path('/labs/collab/Imaging/Imaging-PHI/Emory_Images/AllNotes/batch_chunks')
+    final_output = '/labs/collab/Imaging/Imaging-PHI/Emory_Images/AllNotes/Combined_Radiology_Notes_with_EncounterNumber_batch_deid.csv'
     target_num_chunks = 100
     max_workers = 10
     
@@ -182,8 +188,8 @@ def main():
     print("Starting chunk-by-chunk processing...")
     
     # Read and process file in chunks
-    chunk_reader = pd.read_csv(input_file, sep='|', chunksize=chunk_size)
-    
+    chunk_reader = pd.read_csv(input_file, chunksize=chunk_size, on_bad_lines='skip')
+   
     for df_chunk in chunk_reader:
         if chunk_id in processed_chunks:
             print(f"Skipping chunk {chunk_id} (already processed)")

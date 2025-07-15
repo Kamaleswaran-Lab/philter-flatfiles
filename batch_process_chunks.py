@@ -66,7 +66,7 @@ def process_batch_request(session, combined_text, batch_start_idx, expected_coun
     for attempt in range(max_retries):
         try:
             response = session.post(
-                'http://localhost:8080/api/filter',
+                'http://philter:8080/api/filter',
                 data=combined_text,
                 headers={'Content-Type': 'text/plain'},
                 params={'p': 'default'},
@@ -103,7 +103,7 @@ def process_batch_request(session, combined_text, batch_start_idx, expected_coun
 def process_chunk_batched(df_chunk, chunk_id, note_column='DOC_TEXT', batch_size=100):
     """Process a chunk using batched API calls"""
     print(f"Processing chunk {chunk_id} with {len(df_chunk)} rows in batches of {batch_size}...")
-    
+    import pdb; pdb.set_trace()
     # Extract texts from the chunk
     texts = df_chunk[note_column].tolist()
     
@@ -141,15 +141,15 @@ def get_total_rows(input_file):
     total_rows = 0
     
     # Read file in small chunks just to count rows
-    for chunk in pd.read_csv(input_file, sep='|', chunksize=1000):
+    for chunk in pd.read_csv(input_file, chunksize=1000):
         total_rows += len(chunk)
     
     return total_rows
 
 def save_chunk_result(chunk_df, chunk_id, output_dir):
     """Save processed chunk to file"""
-    output_path = output_dir / f"batch_chunk_{chunk_id:03d}_processed.dsv"
-    chunk_df.to_csv(output_path, index=False, sep='|')
+    output_path = output_dir / f"batch_chunk_{chunk_id:03d}_processed.csv"
+    chunk_df.to_csv(output_path, index=False)
     return output_path
 
 def load_processed_chunks(output_dir):
@@ -219,9 +219,9 @@ def test_separator_token(input_file, sample_size=1000):
 
 def main():
     # Configuration
-    input_file = '/mnt/c/klduke/emorydata/Combined_Radiology_Notes_with_EncounterNumber.dsv'
-    output_dir = Path('/mnt/c/klduke/emorydata/batch_chunks')
-    final_output = '/mnt/c/klduke/emorydata/Combined_Radiology_Notes_with_EncounterNumber_batch_deid.dsv'
+    input_file = '/labs/collab/Imaging/Imaging-PHI/Emory_Images/Meta/Combined_Radiology_Notes_with_EncounterNumber.csv'
+    output_dir = Path('/labs/collab/Imaging/Imaging-PHI/Emory_Images/AllNotes/batch_chunks')
+    final_output = '/labs/collab/Imaging/Imaging-PHI/Emory_Images/AllNotes/Combined_Radiology_Notes_with_EncounterNumber_batch_deid.csv'
     target_num_chunks = 100
     batch_size = 50  # Number of rows to batch together per API call
     
@@ -251,7 +251,7 @@ def main():
     print(f"Starting batch processing (batch size: {batch_size} rows per API call)...")
     
     # Read and process file in chunks
-    chunk_reader = pd.read_csv(input_file, sep='|', chunksize=chunk_size)
+    chunk_reader = pd.read_csv(input_file,  chunksize=chunk_size)
     
     for df_chunk in chunk_reader:
         if chunk_id in processed_chunks:
